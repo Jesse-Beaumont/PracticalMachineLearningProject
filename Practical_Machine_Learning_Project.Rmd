@@ -1,0 +1,147 @@
+---
+title: "Practical Machine Learning Project - Predicting Performance of Excercise Movements."
+author: "Jesse Beaumont - January 8, 2017"
+output: html_document
+---
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
+library(data.table)
+library(dplyr)
+library(tidyr)
+library(caret)
+require(randomForest)
+```
+
+
+##Executive Summary - Predicting Exercise Performance
+
+The purpose of this study predict the manner in which an individual exercise was performed.
+
+A considerable amount of data is collected from wearable devices which capture how much specific activities are performed. 
+For example, an individual may be interested in recording how many weight lifting repetitions they accomplished.
+However, it should be possible to attest to whether or not they did each repetition properly and record  the number of mistakes.
+
+We shall model movemements collected from accelerometers during these exercises located at 4 locations on the each participant:
+   1. The belt
+   2. The upper arm
+   3. The forearm
+   4. The weight itself.
+
+Six participants performed 10 repetitions of unilateral dumbbell biceps curls in 
+5 different manners: 
+
+   1. Exactly according to the specification (Class A),
+   2. Throwing the elbows to the front (Class B),
+   3. Lifting the dumbbell only halfway (Class C),
+   4. Lowering the dumbbell only halfway (Class D)
+   5. Throwing the hips to the front (Class E).
+
+Class 'A' corresponds to the exercise being performed correctly. The remaining activity classes correpond to common mistakes.
+Each method is specified in the source data by the variable "classe".
+
+
+_The data used was kindly made available from http://groupware.les.inf.puc-rio.br/ha  Thank you to the collaborators involved during the study._
+
+
+###Building Our Model
+
+We began our analysis by exploring the source data. The data contains a mixture of both granular
+time series of movements as well as summary statistics pertaining to the entire range of motion per 
+repetition.  We begin my eliminating the sparse values from our data.
+
+```{r, echo=FALSE, cache = FALSE}
+# Load the source data.
+#options(stringsAsFactors = TRUE)
+pml_training <- read.csv("./pml-training.csv", header = TRUE)
+pml_testing  <- read.csv("./pml-testing.csv",  header = TRUE)
+```
+
+Since our test data only contains specific points and not the full range of motion in a repetition, 
+we shall exclude these rows from our training data denoted by the "new window" value.
+
+```{r, echo=FALSE, cache = FALSE}
+pml_training <- subset(pml_training, new_window == "no")
+```
+
+```{r, echo=FALSE, cache = FALSE}
+temp <- as.data.table(pml_training)
+temp <- temp[,which(unlist(lapply(temp, function(x)!all( is.na(x)) ))), with=F]
+
+# clean residual levels that are of 1 distinct value
+temp <- droplevels(temp)
+temp <- temp[, (names(temp)[which(sapply(temp, uniqueN) == 1)]) := NULL]
+
+# remove the row ordinal value
+# remove the timeseries details
+temp <- temp[,-c('X', 'raw_timestamp_part_1', 'raw_timestamp_part_2', 'cvtd_timestamp', 'num_window')]
+training <- as.data.frame(temp)
+dim(training)
+```
+
+
+###Training Data
+
+We shall train our model using 70% of the observations in our source data.
+Later, we will use the remaining 30% of observations to cross-validate
+our predictive model.
+
+```{r, echo=TRUE}
+train_part <- createDataPartition(y=training$classe, p=0.70, list=FALSE)
+training <- training[train_part,]
+validation <- training[-train_part,]
+```
+
+
+###Model using Random Forest
+
+```{r, echo=TRUE}
+set.seed(57)
+rf.model <- randomForest(classe ~ ., data=training, method="class")
+print(rf.model)
+```
+
+
+###Variable Importance
+
+Observing variable importance, we can see that "roll belt"" contributes to the most variance in the
+outcome.  Here we plot the belt roll measure with the 2nd principal component, belt yaw.
+
+```{r, fig.width=7, fig.height=6}
+varImpPlot(rf.model)
+qplot(roll_belt, yaw_belt, colour=classe, data=validation)
+```
+
+
+###Cross Validation
+
+A validation dataset was created as an independent partition of the source data.
+We shall use this to observe the out of sample error.
+
+
+```{r, echo=TRUE}
+predictions <- predict(rf.model, validation)
+confusionMatrix <- confusionMatrix(predictions, validation[,c("classe")])
+confusionMatrix
+```
+
+
+###Expected out of sample error
+
+Our out-of-sample error is estimated by substracting the total accuracy from a potential 1 (100% accuracy).
+
+```{r, echo=TRUE}
+accuracy <- confusionMatrix$overall[1]
+outOfSampleError <- 1 - accuracy
+paste(round(100 * outOfSampleError, 4), "%")
+```
+
+
+###Predictions
+
+The test data, containing 20 test cases, provided is applied to the predictive model.
+
+```{r, echo=TRUE}
+prediction_results  <- predict(rf.model, pml_testing)
+prediction_results
+```
