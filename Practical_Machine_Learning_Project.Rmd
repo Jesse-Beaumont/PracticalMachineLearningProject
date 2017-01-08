@@ -1,7 +1,7 @@
 ---
 title: "Practical Machine Learning Project - Predicting Performance of Excercise Movements."
 author: "Jesse Beaumont - January 8, 2017"
-output: html_document
+output: md_document
 ---
 
 ```{r global_options, include=FALSE}
