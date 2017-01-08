@@ -88,19 +88,14 @@ our predictive model.
 
 ### Model using Random Forest
 
-The model is compiled using random forest.
+The model is compiled using random forest. Random forest estimates a
+test set error internally. Each decision tree is constructed using a
+different bootstrap sample from the training data. Each tree leaves uses
+approx 2/3 of the data in the bootstrap sample. The remaining 1/3 are
+left out and may be used to calculate the expected out-of-sample error.
+This is referred to as the "out-of-bag" (OOB) data.
 
     rf.model <- randomForest(classe ~ ., data=training, mtry=2, ntree=500)
-
-### Cross Validation and Expected Out-of-Sample Error
-
-Random forest estimates a test set error internally. Each decision tree
-is constructed using a different bootstrap sample from the training
-data. Each tree leaves uses approx 2/3 of the data in the bootstrap
-sample. The remaining 1/3 are left out and may be used to calculate the
-expected out-of-sample error. This is referred to as the "out-of-bag"
-(OOB) data.
-
     print(rf.model)
 
     ## 
@@ -118,6 +113,8 @@ expected out-of-sample error. This is referred to as the "out-of-bag"
     ## C    0   17 2494    3    0 0.0079554495
     ## D    0    0   50 2308    3 0.0224481152
     ## E    0    0    2    4 2640 0.0022675737
+
+### Cross Validation
 
 Using the validation data prepared earlier, we will cross-validate our
 model.
@@ -157,6 +154,8 @@ model.
     ## Detection Prevalence   0.2863   0.1924   0.1762   0.1616   0.1835
     ## Balanced Accuracy      0.9988   0.9940   0.9954   0.9929   0.9994
 
+### Expected Out-of-Sample Error
+
 We shall calculate our out-of-sample error by calculating the percentage
 of misclassified results. This is equivalent to 1 - accuracy of the
 validation predictions.
@@ -175,7 +174,7 @@ to the most variance in the outcome.
 
     varImpPlot(rf.model)
 
-![](Practical_Machine_Learning_Project_files/figure-markdown_strict/unnamed-chunk-10-1.png)
+![](Practical_Machine_Learning_Project_files/figure-markdown_strict/unnamed-chunk-9-1.png)
 
 ### Prediction Results
 
