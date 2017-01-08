@@ -91,9 +91,7 @@ our predictive model.
 The model is compiled using random forest. Random forest estimates a
 test set error internally. Each decision tree is constructed using a
 different bootstrap sample from the training data. Each tree leaves uses
-approx 2/3 of the data in the bootstrap sample. The remaining 1/3 are
-left out and may be used to calculate the expected out-of-sample error.
-This is referred to as the "out-of-bag" (OOB) data.
+approx 2/3 of the data in the bootstrap sample.
 
     rf.model <- randomForest(classe ~ ., data=training, mtry=2, ntree=500)
     print(rf.model)
@@ -117,7 +115,8 @@ This is referred to as the "out-of-bag" (OOB) data.
 ### Cross Validation
 
 Using the validation data prepared earlier, we will cross-validate our
-model.
+model. Running the predictions with our validation data, we have 99%
+accuracy.
 
     predictions <- predict(rf.model, validation)
     confusionMatrix(predictions, validation[,c("classe")])
