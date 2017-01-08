@@ -74,26 +74,33 @@ to the classe in the data available for training.
     # remove the row ordinal value
     # remove the timeseries details
     temp <- temp[,-c('X', 'raw_timestamp_part_1', 'raw_timestamp_part_2', 'cvtd_timestamp', 'num_window')]
-    training <- as.data.frame(temp)
-    dim(training)
-
-    ## [1] 19216    54
+    sourcedata <- as.data.frame(temp)
 
 ### Training Data
 
-We shall train our model using 70% of the observations in our source
-data. Later, we will use the remaining 30% of observations to
-cross-validate our predictive model.
+We shall train our model using 75% of the observations in our source
+data. Later, we will use the remaining observations to cross-validate
+our predictive model.
 
-    train_part <- createDataPartition(y=training$classe, p=0.70, list=FALSE)
-    training <- training[train_part,]
-    validation <- training[-train_part,]
+    train_part <- createDataPartition(y=sourcedata$classe, p=3/4)[[1]]
+    training <- sourcedata[train_part,]
+    validation <- sourcedata[-train_part,]
 
 ### Model using Random Forest
 
 The model is compiled using random forest.
 
     rf.model <- randomForest(classe ~ ., data=training, mtry=2, ntree=500)
+
+### Cross Validation and Expected Out-of-Sample Error
+
+Random forest estimates a test set error internally. Each decision tree
+is constructed using a different bootstrap sample from the training
+data. Each tree leaves uses approx 2/3 of the data in the bootstrap
+sample. The remaining 1/3 are left out and may be used to calculate the
+expected out-of-sample error. This is referred to as the "out-of-bag"
+(OOB) data.
+
     print(rf.model)
 
     ## 
@@ -105,88 +112,77 @@ The model is compiled using random forest.
     ## 
     ##         OOB estimate of  error rate: 0.74%
     ## Confusion matrix:
-    ##      A    B    C    D    E class.error
-    ## A 3824    3    2    0    1 0.001566580
-    ## B   15 2584    4    0    0 0.007299270
-    ## C    0   16 2327    4    0 0.008521517
-    ## D    0    0   47 2153    3 0.022696323
-    ## E    0    0    1    4 2465 0.002024291
+    ##      A    B    C    D    E  class.error
+    ## A 4100    1    3    0    0 0.0009746589
+    ## B   20 2765    4    0    0 0.0086052349
+    ## C    0   17 2494    3    0 0.0079554495
+    ## D    0    0   50 2308    3 0.0224481152
+    ## E    0    0    2    4 2640 0.0022675737
 
-### Variable Importance
-
-Observing variable importance, we can see that "roll belt"" contributes
-to the most variance in the outcome. Here we plot the belt roll measure
-with the 2nd principal component, belt yaw.
-
-    varImpPlot(rf.model)
-
-![](Practical_Machine_Learning_Project_files/figure-markdown_strict/unnamed-chunk-7-1.png)
-
-Here we plot the belt roll measure with the 2nd principal component,
-belt yaw.
-
-    qplot(roll_belt, yaw_belt, colour=classe, data=validation)
-
-![](Practical_Machine_Learning_Project_files/figure-markdown_strict/unnamed-chunk-8-1.png)
-
-### Cross Validation
-
-A validation dataset was created as an independent partition of the
-source data. We shall use this to observe the out of sample error.
+Using the validation data prepared earlier, we will cross-validate our
+model.
 
     predictions <- predict(rf.model, validation)
-    confusionMatrix <- confusionMatrix(predictions, validation[,c("classe")])
-    confusionMatrix
+    confusionMatrix(predictions, validation[,c("classe")])
 
     ## Confusion Matrix and Statistics
     ## 
     ##           Reference
     ## Prediction    A    B    C    D    E
-    ##          A 1149    0    0    0    0
-    ##          B    0  796    0    0    0
-    ##          C    0    0  706    0    0
-    ##          D    0    0    0  637    0
-    ##          E    0    0    0    0  763
+    ##          A 1367    8    0    0    0
+    ##          B    0  919    5    0    0
+    ##          C    0    2  833   11    0
+    ##          D    0    0    0  775    1
+    ##          E    0    0    0    0  881
     ## 
     ## Overall Statistics
-    ##                                      
-    ##                Accuracy : 1          
-    ##                  95% CI : (0.9991, 1)
-    ##     No Information Rate : 0.2836     
-    ##     P-Value [Acc > NIR] : < 2.2e-16  
-    ##                                      
-    ##                   Kappa : 1          
-    ##  Mcnemar's Test P-Value : NA         
+    ##                                           
+    ##                Accuracy : 0.9944          
+    ##                  95% CI : (0.9918, 0.9963)
+    ##     No Information Rate : 0.2847          
+    ##     P-Value [Acc > NIR] : < 2.2e-16       
+    ##                                           
+    ##                   Kappa : 0.9929          
+    ##  Mcnemar's Test P-Value : NA              
     ## 
     ## Statistics by Class:
     ## 
     ##                      Class: A Class: B Class: C Class: D Class: E
-    ## Sensitivity            1.0000   1.0000   1.0000   1.0000   1.0000
-    ## Specificity            1.0000   1.0000   1.0000   1.0000   1.0000
-    ## Pos Pred Value         1.0000   1.0000   1.0000   1.0000   1.0000
-    ## Neg Pred Value         1.0000   1.0000   1.0000   1.0000   1.0000
-    ## Prevalence             0.2836   0.1965   0.1743   0.1572   0.1883
-    ## Detection Rate         0.2836   0.1965   0.1743   0.1572   0.1883
-    ## Detection Prevalence   0.2836   0.1965   0.1743   0.1572   0.1883
-    ## Balanced Accuracy      1.0000   1.0000   1.0000   1.0000   1.0000
+    ## Sensitivity            1.0000   0.9892   0.9940   0.9860   0.9989
+    ## Specificity            0.9977   0.9987   0.9967   0.9998   1.0000
+    ## Pos Pred Value         0.9942   0.9946   0.9846   0.9987   1.0000
+    ## Neg Pred Value         1.0000   0.9974   0.9987   0.9973   0.9997
+    ## Prevalence             0.2847   0.1935   0.1745   0.1637   0.1837
+    ## Detection Rate         0.2847   0.1914   0.1735   0.1614   0.1835
+    ## Detection Prevalence   0.2863   0.1924   0.1762   0.1616   0.1835
+    ## Balanced Accuracy      0.9988   0.9940   0.9954   0.9929   0.9994
 
-### Expected out of sample error
+We shall calculate our out-of-sample error by calculating the percentage
+of misclassified results. This is equivalent to 1 - accuracy of the
+validation predictions.
 
-Our out-of-sample error is estimated by substracting the total accuracy
-from a potential 1 (100% accuracy).
+    count_of_incorrect_predictions <- sum(predictions != validation$classe)
+    count_of_predictions <- length(predictions)
+    OOSE <- count_of_incorrect_predictions/count_of_predictions
+    paste("Expected Out-of-Sample Error: ", round(100 * OOSE, 2), "%", sep="")
 
-    accuracy <- confusionMatrix$overall[1]
-    outOfSampleError <- 1 - accuracy
-    paste("Expected out of sample error:", round(100 * outOfSampleError, 5), "%")
+    ## [1] "Expected Out-of-Sample Error: 0.56%"
 
-    ## [1] "Expected out of sample error: 0 %"
+### Variable Importance
+
+Observing variable importance, we can see that "roll belt"" contributes
+to the most variance in the outcome.
+
+    varImpPlot(rf.model)
+
+![](Practical_Machine_Learning_Project_files/figure-markdown_strict/unnamed-chunk-10-1.png)
 
 ### Prediction Results
 
 The test data, containing 20 test cases, provided is applied to the
 predictive model.
 
-    prediction_results  <- predict(rf.model, pml_testing)
+    prediction_results <- predict(rf.model, pml_testing)
     prediction_results
 
     ##  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 
