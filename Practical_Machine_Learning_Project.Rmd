@@ -1,5 +1,5 @@
 ---
-title: "Practical Machine Learning Project - Predicting Performance of Excercise Movements."
+title: "Practical Machine Learning Project - Predicting Performance of Exercise Movements."
 author: "Jesse Beaumont - January 8, 2017"
 output: md_document
 ---
@@ -11,6 +11,8 @@ library(dplyr)
 library(tidyr)
 library(caret)
 require(randomForest)
+
+set.seed(57987432)
 ```
 
 
@@ -23,6 +25,7 @@ For example, an individual may be interested in recording how many weight liftin
 However, it should be possible to attest to whether or not they did each repetition properly and record  the number of mistakes.
 
 We shall model movemements collected from accelerometers during these exercises located at 4 locations on the each participant:
+
    1. The belt
    2. The upper arm
    3. The forearm
@@ -41,7 +44,7 @@ Class 'A' corresponds to the exercise being performed correctly. The remaining a
 Each method is specified in the source data by the variable "classe".
 
 
-_The data used was kindly made available from http://groupware.les.inf.puc-rio.br/ha  Thank you to the collaborators involved during the study._
+_The data used was kindly made available from http://groupware.les.inf.puc-rio.br/har .  Thank you to the collaborators involved during the study._
 
 
 ###Building Our Model
@@ -50,7 +53,7 @@ We began our analysis by exploring the source data. The data contains a mixture 
 time series of movements as well as summary statistics pertaining to the entire range of motion per 
 repetition.  We begin my eliminating the sparse values from our data.
 
-```{r, echo=FALSE, cache = FALSE}
+```{r, echo=TRUE, cache = FALSE}
 # Load the source data.
 #options(stringsAsFactors = TRUE)
 pml_training <- read.csv("./pml-training.csv", header = TRUE)
@@ -60,25 +63,34 @@ pml_testing  <- read.csv("./pml-testing.csv",  header = TRUE)
 Since our test data only contains specific points and not the full range of motion in a repetition, 
 we shall exclude these rows from our training data denoted by the "new window" value.
 
-```{r, echo=FALSE, cache = FALSE}
+```{r, echo=TRUE, cache = FALSE}
 pml_training <- subset(pml_training, new_window == "no")
 ```
 
-```{r, echo=FALSE, cache = FALSE}
+Also, we shall exclude the sparsity of the data caused by empty columns.
+
+```{r, echo=TRUE, cache = FALSE}
 temp <- as.data.table(pml_training)
 temp <- temp[,which(unlist(lapply(temp, function(x)!all( is.na(x)) ))), with=F]
 
 # clean residual levels that are of 1 distinct value
 temp <- droplevels(temp)
 temp <- temp[, (names(temp)[which(sapply(temp, uniqueN) == 1)]) := NULL]
+```
 
+The test cases we will be classifying do not account for the full range of motion and are granular
+points in time recorded within a repetition. Our model will be compiled respective of the same level
+so we remove the time related metrics. Also, since our model should be capable of predicting what action
+was performed, "num_window", should absolutely be removed as it was left in the test data and has a direct
+correlation to the classe in the data available for training.
+
+```{r, echo=TRUE, cache = FALSE}
 # remove the row ordinal value
 # remove the timeseries details
 temp <- temp[,-c('X', 'raw_timestamp_part_1', 'raw_timestamp_part_2', 'cvtd_timestamp', 'num_window')]
 training <- as.data.frame(temp)
 dim(training)
 ```
-
 
 ###Training Data
 
@@ -95,9 +107,10 @@ validation <- training[-train_part,]
 
 ###Model using Random Forest
 
+The model is compiled using random forest.
+
 ```{r, echo=TRUE}
-set.seed(57)
-rf.model <- randomForest(classe ~ ., data=training, method="class")
+rf.model <- randomForest(classe ~ ., data=training, mtry=2, ntree=500)
 print(rf.model)
 ```
 
@@ -109,6 +122,11 @@ outcome.  Here we plot the belt roll measure with the 2nd principal component, b
 
 ```{r, fig.width=7, fig.height=6}
 varImpPlot(rf.model)
+```
+
+Here we plot the belt roll measure with the 2nd principal component, belt yaw.
+
+```{r, fig.width=7, fig.height=6}
 qplot(roll_belt, yaw_belt, colour=classe, data=validation)
 ```
 
@@ -117,7 +135,6 @@ qplot(roll_belt, yaw_belt, colour=classe, data=validation)
 
 A validation dataset was created as an independent partition of the source data.
 We shall use this to observe the out of sample error.
-
 
 ```{r, echo=TRUE}
 predictions <- predict(rf.model, validation)
@@ -133,11 +150,11 @@ Our out-of-sample error is estimated by substracting the total accuracy from a p
 ```{r, echo=TRUE}
 accuracy <- confusionMatrix$overall[1]
 outOfSampleError <- 1 - accuracy
-paste(round(100 * outOfSampleError, 4), "%")
+paste("Expected out of sample error:", round(100 * outOfSampleError, 5), "%")
 ```
 
 
-###Predictions
+###Prediction Results
 
 The test data, containing 20 test cases, provided is applied to the predictive model.
 
